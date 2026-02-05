@@ -1,0 +1,289 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Приглашение</title>
+    <style>
+        :root {
+            --bg1: #0b1220;
+            --bg2: #111b34;
+            --card: #0f1a33;
+            --txt: #e9eefc;
+            --muted: #a9b4d6;
+            --accent: #7aa2ff;
+            --danger: #ff6b6b;
+            --ok: #46d19a;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial;
+            background: radial-gradient(1200px 800px at 20% 10%, #1a2c66 0%, transparent 55%), radial-gradient(1200px 800px at 80% 90%, #2a1b55 0%, transparent 55%), linear-gradient(180deg,var(--bg1),var(--bg2));
+            color: var(--txt);
+            padding: 24px;
+        }
+
+        .wrap {
+            width: min(560px,100%)
+        }
+
+        .panel {
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 24px 80px rgba(0,0,0,.45);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 22px;
+            letter-spacing: .2px
+        }
+
+        p {
+            margin: 0 0 16px;
+            color: var(--muted);
+            line-height: 1.45
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch
+        }
+
+        input {
+            flex: 1;
+            padding: 14px 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(0,0,0,.18);
+            color: var(--txt);
+            font-size: 16px;
+            outline: none;
+        }
+
+            input:focus {
+                border-color: rgba(122,162,255,.65);
+                box-shadow: 0 0 0 4px rgba(122,162,255,.15)
+            }
+
+        button {
+            padding: 14px 16px;
+            border: 0;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(122,162,255,1), rgba(86,126,255,1));
+            color: #0b1220;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            min-width: 150px;
+            transition: transform .06s ease, filter .15s ease;
+        }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+            button:hover {
+                filter: brightness(1.05)
+            }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .msg {
+            margin-top: 12px;
+            font-size: 14px;
+            min-height: 20px
+        }
+
+            .msg.bad {
+                color: var(--danger)
+            }
+
+            .msg.ok {
+                color: var(--ok)
+            }
+
+        .card {
+            margin-top: 18px;
+            display: none;
+            padding: 18px;
+            border-radius: 18px;
+            background: rgba(15,26,51,.75);
+            border: 1px solid rgba(255,255,255,.12);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .card.show {
+                display: block;
+                animation: pop .22s ease-out
+            }
+
+        @keyframes pop {
+            from {
+                transform: scale(.98);
+                opacity: .6
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(122,162,255,.18);
+            border: 1px solid rgba(122,162,255,.35);
+            color: var(--txt);
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .big {
+            font-size: 20px;
+            margin: 0 0 10px;
+            line-height: 1.25;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px
+        }
+
+        .secondary {
+            background: rgba(255,255,255,.08);
+            color: var(--txt);
+            border: 1px solid rgba(255,255,255,.14);
+        }
+
+        .footer {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .spark {
+            position: absolute;
+            inset: -40px;
+            background: radial-gradient(12px 12px at 20% 30%, rgba(122,162,255,.25), transparent 60%), radial-gradient(10px 10px at 65% 20%, rgba(70,209,154,.18), transparent 60%), radial-gradient(14px 14px at 80% 70%, rgba(255,107,107,.14), transparent 60%);
+            filter: blur(1px);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="panel" id="gate">
+            <h1>Введите код</h1>
+            <p>И нажмите кнопку — откроется открытка.</p>
+
+            <div class="row">
+                <input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Например: 1408" maxlength="8" />
+                <button id="go">Открыть</button>
+            </div>
+
+            <div class="hint">Подсказка: можно нажать Enter.</div>
+            <div class="msg" id="msg"></div>
+
+            <div class="card" id="card">
+                <div class="spark"></div>
+                <div class="badge">Приглашение</div>
+                <p class="big"><strong>Погнали поиграем?</strong> 🎮</p>
+                <p style="margin:0;color:var(--muted)">
+                    Есть настроение на короткую катку / тест / созвон? Жми кнопку ниже.
+                </p>
+
+                <div class="actions">
+                    <!-- Вставьте сюда вашу ссылку (Discord/Telegram/Steam/что угодно) -->
+                    <a id="link" href="https://t.me/" target="_blank" rel="noreferrer">
+                        <button>Перейти</button>
+                    </a>
+                    <button class="secondary" id="copy">Скопировать текст</button>
+                </div>
+
+                <div class="footer" id="foot">
+                    Текст можно поменять прямо в этом файле.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function(){
+      const REQUIRED = "1408";
+
+      const input = document.getElementById("code");
+      const btn = document.getElementById("go");
+      const msg = document.getElementById("msg");
+      const card = document.getElementById("card");
+      const copy = document.getElementById("copy");
+
+      // Текст открытки (можно менять)
+      const inviteText = [
+        "Погнали поиграем? 🎮",
+        "Залетай, будет весело.",
+        "Ссылка: (вставь свою ссылку в index.html)"
+      ].join("\n");
+
+      function setMsg(text, ok){
+        msg.textContent = text;
+        msg.className = "msg " + (ok ? "ok" : "bad");
+      }
+
+      function openCard(){
+        card.classList.add("show");
+        setMsg("Код верный. Открытка открыта.", true);
+      }
+
+      function check(){
+        const v = (input.value || "").trim();
+        if(v === REQUIRED){
+          openCard();
+        } else {
+          card.classList.remove("show");
+          setMsg("Неверный код.", false);
+        }
+      }
+
+      btn.addEventListener("click", check);
+      input.addEventListener("keydown", (e) => {
+        if(e.key === "Enter") check();
+      });
+
+      copy.addEventListener("click", async () => {
+        try{
+          await navigator.clipboard.writeText(inviteText);
+          setMsg("Текст скопирован в буфер обмена.", true);
+        } catch(e){
+          setMsg("Не получилось скопировать (браузер запретил).", false);
+        }
+      });
+
+      // Фокус сразу
+      input.focus();
+    })();
+    </script>
+</body>
+</html>
