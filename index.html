@@ -1,4 +1,5 @@
-﻿<!doctype html>
+﻿```html
+<!doctype html>
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
@@ -69,6 +70,21 @@
             z-index: 0;
         }
 
+        /* Warp ripples (full-screen) */
+        canvas#warp {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+            display: none;
+        }
+
+        body.warp-on canvas#warp {
+            display: block;
+        }
+
         /* Layout */
         .wrap {
             position: relative;
@@ -89,7 +105,16 @@
             box-shadow: var(--shadow);
             overflow: hidden;
             position: relative;
+            transition: opacity 240ms ease, transform 240ms ease, filter 240ms ease;
         }
+
+            /* Когда "влетаем" — карточка исчезает */
+            .panel.warp-hide {
+                opacity: 0;
+                transform: scale(0.985);
+                filter: blur(2px);
+                pointer-events: none;
+            }
 
             .panel::before {
                 content: "";
@@ -554,6 +579,7 @@
 <body>
     <div class="bg-veil"></div>
     <canvas id="fx"></canvas>
+    <canvas id="warp"></canvas>
 
     <div class="wrap">
         <div class="panel" id="panel">
@@ -686,24 +712,21 @@
             }
 
             function openPortal() {
-                // UI transition
+                // 1) Убираем окно (панель)
                 setMsg("", true);
-                portal.classList.add("show");
+                const panel = document.getElementById("panel");
+                panel.classList.add("warp-hide");
 
-                // усилить эффекты на фоне
-                FX.boost(1.9);
+                // 2) Запускаем "влёт" — разноцветные круги по всему фону
+                Warp.start(PORTAL_MS);
+                FX.boost(2.2);
 
-                // небольшая “встряска”
-                document.getElementById("panel").animate(
-                    [{ transform: "translateY(0px)" }, { transform: "translateY(1px)" }, { transform: "translateY(0px)" }],
-                    { duration: 240, easing: "ease-out" }
-                );
-
+                // 3) По завершении показываем открытку
                 setTimeout(() => {
-                    portal.classList.remove("show");
                     gate.style.display = "none";
                     card.classList.add("show");
-                    FX.boost(1.2);
+                    panel.classList.remove("warp-hide");
+                    FX.boost(1.25);
                 }, PORTAL_MS);
             }
 
@@ -756,14 +779,20 @@
             });
 
             replayBtn.addEventListener("click", () => {
-                // “портал ещё раз”
+                // “портал ещё раз” — тот же эффект влёта
+                const panel = document.getElementById("panel");
                 gate.style.display = "block";
                 card.classList.remove("show");
-                portal.classList.add("show");
-                FX.boost(2.0);
+                setMsg("", true);
+
+                panel.classList.add("warp-hide");
+                Warp.start(PORTAL_MS);
+                FX.boost(2.2);
+
                 setTimeout(() => {
-                    portal.classList.remove("show");
-                    resetToGate();
+                    panel.classList.remove("warp-hide");
+                    answer.value = "";
+                    answer.focus();
                 }, PORTAL_MS);
             });
 
@@ -774,16 +803,27 @@
             const canvas = document.getElementById("fx");
             const ctx = canvas.getContext("2d");
 
+            // Warp canvas (цветные круги)
+            const warpCanvas = document.getElementById("warp");
+            const wctx = warpCanvas.getContext("2d");
+
             let W = 0, H = 0, DPR = 1;
             function resize() {
                 DPR = Math.min(2, window.devicePixelRatio || 1);
                 W = Math.floor(window.innerWidth);
                 H = Math.floor(window.innerHeight);
+
                 canvas.width = Math.floor(W * DPR);
                 canvas.height = Math.floor(H * DPR);
                 canvas.style.width = W + "px";
                 canvas.style.height = H + "px";
                 ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+                warpCanvas.width = Math.floor(W * DPR);
+                warpCanvas.height = Math.floor(H * DPR);
+                warpCanvas.style.width = W + "px";
+                warpCanvas.style.height = H + "px";
+                wctx.setTransform(DPR, 0, 0, DPR, 0, 0);
             }
             window.addEventListener("resize", resize);
             resize();
@@ -920,6 +960,119 @@
                 }
             };
 
+            // ====== WARP (разноцветные круги из центра) ======
+            const Warp = (() => {
+                let active = false;
+                let tStart = 0;
+                let duration = 0;
+                const rings = [];
+
+                const palette = [
+                    { r: 122, g: 162, b: 255 }, // blue
+                    { r: 70, g: 209, b: 154 },  // green
+                    { r: 255, g: 107, b: 107 }, // red
+                    { r: 186, g: 120, b: 255 }, // violet
+                    { r: 255, g: 201, b: 92 }   // warm
+                ];
+
+                function spawn(n = 10) {
+                    const cx = W * 0.5;
+                    const cy = H * 0.5;
+                    for (let i = 0; i < n; i++) {
+                        const c = palette[Math.floor(Math.random() * palette.length)];
+                        rings.push({
+                            cx,
+                            cy,
+                            r: rnd(0, 20),
+                            w: rnd(10, 44),
+                            a: rnd(0.22, 0.55),
+                            speed: rnd(900, 1900),
+                            c,
+                            phase: rnd(0, Math.PI * 2)
+                        });
+                    }
+                }
+
+                function drawWarp(now) {
+                    if (!active) return;
+
+                    const p = Math.max(0, Math.min(1, (now - tStart) / duration));
+
+                    // фон чуть затемняем, чтобы круги были ярче
+                    wctx.clearRect(0, 0, W, H);
+                    wctx.fillStyle = `rgba(7,11,24,${0.30 + 0.40 * (1 - Math.abs(0.5 - p) * 2)})`;
+                    wctx.fillRect(0, 0, W, H);
+
+                    // "туннель" — лёгкая радиальная подсветка
+                    const g = wctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.7);
+                    g.addColorStop(0, `rgba(122,162,255,${0.20 + 0.30 * (1 - p)})`);
+                    g.addColorStop(0.45, `rgba(70,209,154,${0.10 + 0.22 * (1 - p)})`);
+                    g.addColorStop(1, "rgba(0,0,0,0)");
+                    wctx.fillStyle = g;
+                    wctx.fillRect(0, 0, W, H);
+
+                    // рисуем кольца
+                    wctx.lineCap = "round";
+                    for (let i = rings.length - 1; i >= 0; i--) {
+                        const r = rings[i];
+                        r.r += (r.speed * 0.016);
+                        r.a *= 0.985;
+
+                        // лёгкая волна толщины
+                        const ww = r.w * (0.85 + 0.15 * Math.sin(now / 140 + r.phase));
+
+                        // если слишком большое — удаляем
+                        if (r.r > Math.max(W, H) * 1.2 || r.a < 0.02) {
+                            rings.splice(i, 1);
+                            continue;
+                        }
+
+                        // alpha усиление в середине анимации
+                        const mid = 1 - Math.abs(0.5 - p) * 2;
+                        const a = Math.max(0, Math.min(1, r.a * (0.55 + 0.75 * mid)));
+
+                        // градиентный штрих (двухцветный)
+                        const gr = wctx.createLinearGradient(r.cx - r.r, r.cy, r.cx + r.r, r.cy);
+                        gr.addColorStop(0, `rgba(${r.c.r},${r.c.g},${r.c.b},${a})`);
+                        gr.addColorStop(1, `rgba(${r.c.r},${r.c.g},${r.c.b},${a * 0.25})`);
+
+                        wctx.strokeStyle = gr;
+                        wctx.lineWidth = ww;
+                        wctx.beginPath();
+                        wctx.arc(r.cx, r.cy, r.r, 0, Math.PI * 2);
+                        wctx.stroke();
+                    }
+
+                    // подспавниваем новые кольца в начале
+                    if (p < 0.55 && rings.length < 60) {
+                        spawn(6);
+                    }
+
+                    // завершение
+                    if (now - tStart >= duration) {
+                        active = false;
+                        rings.length = 0;
+                        wctx.clearRect(0, 0, W, H);
+                        document.body.classList.remove("warp-on");
+                        return;
+                    }
+
+                    requestAnimationFrame(drawWarp);
+                }
+
+                return {
+                    start(ms) {
+                        duration = ms;
+                        tStart = performance.now();
+                        active = true;
+                        rings.length = 0;
+                        spawn(18);
+                        document.body.classList.add("warp-on");
+                        requestAnimationFrame(drawWarp);
+                    }
+                };
+            })();
+
             // initial gentle sparks
             setTimeout(() => spawnSpark(W * 0.5, H * 0.42, 24), 200);
             setInterval(() => {
@@ -934,3 +1087,5 @@
     </script>
 </body>
 </html>
+
+```
