@@ -3,7 +3,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Доброе утро, Жень!</title>
     <style>
         :root {
@@ -93,7 +93,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 24px;
+            /* Safe-area padding for iPhone (notch/home indicator) */
+            padding-top: calc(24px + env(safe-area-inset-top));
+            padding-right: calc(24px + env(safe-area-inset-right));
+            padding-bottom: calc(24px + env(safe-area-inset-bottom));
+            padding-left: calc(24px + env(safe-area-inset-left));
+            /* Legacy Safari fallback */
+            padding-top: calc(24px + constant(safe-area-inset-top));
+            padding-right: calc(24px + constant(safe-area-inset-right));
+            padding-bottom: calc(24px + constant(safe-area-inset-bottom));
+            padding-left: calc(24px + constant(safe-area-inset-left));
         }
 
         .panel {
@@ -106,6 +115,9 @@
             overflow: hidden;
             position: relative;
             transition: opacity 240ms ease, transform 240ms ease, filter 240ms ease;
+            transform-style: preserve-3d;
+            will-change: transform;
+            transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
         }
 
             /* Когда "влетаем" — карточка исчезает */
@@ -369,6 +381,18 @@
             letter-spacing: .1px;
         }
 
+        .typeCaret::after {
+            content: "▌";
+            display: inline-block;
+            margin-left: 3px;
+            color: rgba(234,240,255,.85);
+            animation: caret 0.9s steps(2, end) infinite;
+        }
+
+        @keyframes caret {
+            50% { opacity: 0 }
+        }
+
         .lead {
             margin: 0;
             color: var(--muted);
@@ -574,6 +598,36 @@
             border: 1px solid rgba(255,255,255,.14);
             font-weight: 700;
         }
+
+        /* Modal (QR) */
+        .modal {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(300px 220px at 50% 45%, rgba(122,162,255,.18), transparent 65%), radial-gradient(420px 300px at 50% 55%, rgba(70,209,154,.12), transparent 70%), rgba(7,11,24,.55);
+            backdrop-filter: blur(10px);
+            z-index: 6;
+        }
+
+            .modal.show { display: flex; }
+
+        .modalBox {
+            width: min(360px, 86vw);
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(0,0,0,.18);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .modalTitle {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: rgba(234,240,255,.85);
+        }
     </style>
 </head>
 <body>
@@ -615,7 +669,7 @@
 
                     <div class="hero">
                         <div>
-                            <h2 class="headline">Пусть этот день начнётся<br />с портала в <span style="color:rgba(122,162,255,.95)">ТЕМА</span> ✨</h2>
+                            <h2 class="headline">Пусть этот день начнётся<br />с портала в <span class="typeCaret" style="color:rgba(122,162,255,.95)">ТЕМА</span> ✨</h2>
                             <p class="lead">
                                 Сегодня мы строим новый мир: свет, механики, ощущение бесконечности.
                                 Я хотел просто сказать: ты — топ. Погнали делать красиво.
@@ -626,6 +680,7 @@
                                     <button>Написать мне</button>
                                 </a>
                                 <button class="secondary" id="copy">Скопировать пожелание</button>
+                                <button class="secondary" id="share">Поделиться</button>
                             </div>
 
                             <div class="fine" id="fine">
@@ -665,7 +720,11 @@
                         <div style="color:rgba(234,240,255,.70); font-size:12px;">
                             P.S. Если захотим — добавим “искры”, звук портала и пасхалки.
                         </div>
-                        <button class="tinyBtn" id="replay">Ещё раз открыть портал</button>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button class="tinyBtn" id="replay">Ещё раз открыть портал</button>
+                            <button class="tinyBtn" id="sound">Звук: Вкл</button>
+                            <button class="tinyBtn" id="qr">QR</button>
+                        </div>
                     </div>
                 </section>
 
@@ -673,6 +732,17 @@
         </div>
     </div>
 
+    <!-- QR Modal -->
+    <div class="modal" id="qrModal">
+        <div class="modalBox">
+            <h3 class="modalTitle">QR для быстрого открытия</h3>
+            <canvas id="qrCanvas" style="width:240px; height:240px; margin:0 auto 12px; display:block;"></canvas>
+            <button class="tinyBtn" id="qrClose">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- QRCode CDN (blocks parsing until loaded) -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script>
         (() => {
             // ====== НАСТРОЙКИ (можно менять) ======
@@ -701,6 +771,13 @@
             const card = document.getElementById("card");
             const copyBtn = document.getElementById("copy");
             const replayBtn = document.getElementById("replay");
+            const shareBtn = document.getElementById("share");
+            const soundBtn = document.getElementById("sound");
+            const qrBtn = document.getElementById("qr");
+            const qrModal = document.getElementById("qrModal");
+            const qrCanvas = document.getElementById("qrCanvas");
+            const qrClose = document.getElementById("qrClose");
+            const panelEl = document.getElementById("panel");
 
             function setMsg(text, ok) {
                 msg.textContent = text;
@@ -720,6 +797,7 @@
                 // 2) Запускаем "влёт" — разноцветные круги по всему фону
                 Warp.start(PORTAL_MS);
                 FX.boost(2.2);
+                Sound.playPortal();
 
                 // 3) По завершении показываем открытку
                 setTimeout(() => {
@@ -778,6 +856,61 @@
                 }
             });
 
+            // Поделиться: Web Share API + фолбэк в буфер
+            shareBtn.addEventListener("click", async () => {
+                const url = location.href;
+                try {
+                    if (navigator.share) {
+                        await navigator.share({ title: "Доброе утро!", text: COPY_TEXT, url });
+                        setMsg("Отправлено через системный шаринг ✓", true);
+                    } else {
+                        await navigator.clipboard.writeText(COPY_TEXT + "\n" + url);
+                        setMsg("Текст и ссылка скопированы ✓", true);
+                    }
+                } catch (e) {
+                    setMsg("Не удалось поделиться. Попробуй ещё раз.", false);
+                }
+            });
+
+            // Звук: переключатель
+            soundBtn.addEventListener("click", () => {
+                const on = Sound.toggle();
+                soundBtn.textContent = on ? "Звук: Вкл" : "Звук: Выкл";
+            });
+
+            // QR модалка
+            qrBtn.addEventListener("click", () => {
+                try {
+                    qrModal.classList.add("show");
+                    if (window.QRCode && QRCode.toCanvas) {
+                        QRCode.toCanvas(
+                            qrCanvas,
+                            location.href,
+                            { width: 240, margin: 2, color: { dark: "#eaf0ff", light: "#070b18" } },
+                            () => {}
+                        );
+                    }
+                } catch (e) {
+                    setMsg("QR не сгенерировался.", false);
+                }
+            });
+            qrClose.addEventListener("click", () => qrModal.classList.remove("show"));
+
+            // 3D-наклон панели
+            panelEl.addEventListener("mousemove", (e) => {
+                const r = panelEl.getBoundingClientRect();
+                const x = (e.clientX - r.left) / r.width;
+                const y = (e.clientY - r.top) / r.height;
+                const rx = (0.5 - y) * 4;
+                const ry = (x - 0.5) * 6;
+                panelEl.style.setProperty("--rx", rx + "deg");
+                panelEl.style.setProperty("--ry", ry + "deg");
+            });
+            panelEl.addEventListener("mouseleave", () => {
+                panelEl.style.removeProperty("--rx");
+                panelEl.style.removeProperty("--ry");
+            });
+
             replayBtn.addEventListener("click", () => {
                 // “портал ещё раз” — тот же эффект влёта
                 const panel = document.getElementById("panel");
@@ -788,6 +921,7 @@
                 panel.classList.add("warp-hide");
                 Warp.start(PORTAL_MS);
                 FX.boost(2.2);
+                Sound.playPortal();
 
                 setTimeout(() => {
                     panel.classList.remove("warp-hide");
@@ -959,6 +1093,61 @@
                     spawnSpark(W * 0.5 + rnd(-40, 40), H * 0.35 + rnd(-20, 20), 26);
                 }
             };
+
+            // ====== SOUND (WebAudio) ======
+            const Sound = (() => {
+                let enabled = true;
+                let ctx = null;
+
+                function ensure() {
+                    if (!ctx) {
+                        const C = window.AudioContext || window.webkitAudioContext;
+                        if (C) ctx = new C();
+                    }
+                }
+
+                function playPortal() {
+                    if (!enabled) return;
+                    ensure();
+                    if (!ctx) return;
+
+                    const duration = Math.max(0.8, PORTAL_MS / 1000);
+                    const bufferSize = Math.floor(ctx.sampleRate * duration);
+                    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        // white noise with gentle tail
+                        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize) * 0.9;
+                    }
+
+                    const src = ctx.createBufferSource();
+                    src.buffer = buffer;
+
+                    const gain = ctx.createGain();
+                    const t = ctx.currentTime;
+                    gain.gain.setValueAtTime(0.0001, t);
+                    gain.gain.linearRampToValueAtTime(0.35, t + 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = "bandpass";
+                    filter.Q.value = 0.9;
+                    filter.frequency.setValueAtTime(800, t);
+                    filter.frequency.linearRampToValueAtTime(1800, t + Math.min(0.6, duration));
+
+                    src.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    src.start();
+                    src.stop(t + duration + 0.1);
+                }
+
+                return {
+                    toggle() { enabled = !enabled; ensure(); return enabled; },
+                    playPortal
+                };
+            })();
 
             // ====== WARP (разноцветные круги из центра) ======
             const Warp = (() => {
